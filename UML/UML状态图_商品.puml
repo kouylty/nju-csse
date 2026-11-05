@@ -1,0 +1,42 @@
+@startuml
+!pragma layout smetana
+title D08 商品状态图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 15
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam stateBackgroundColor #E8F3F1
+skinparam stateBorderColor #39786C
+skinparam ArrowColor #48616F
+state "草稿" as Draft
+state "待审核" as Pending
+state "审核驳回" as Rejected
+state "已发布" as Published
+state "主动下架" as Offline
+state "违规下架" as Blocked
+[*] --> Draft : 保存商品
+Draft --> Draft : 编辑并保存
+Draft --> Pending : 资料有效 / 提交审核
+Pending --> Rejected : 管理员驳回 / 保存原因
+Rejected --> Pending : 修改后重新提交
+Pending --> Published : 管理员审核通过
+Published --> Published : 修改价格、邮费、可售库存
+Published --> Pending : 修改标题、图片、描述、类型或分类
+Published --> Offline : 卖家主动下架
+Offline --> Pending : 卖家申请再次上架
+Published --> Blocked : 管理员执行违规下架
+Blocked --> Blocked : 卖家提交整改 / 管理员反馈
+Blocked --> Pending : 管理员批准整改复核
+note right of Published
+  在售 = 已发布且可售库存 > 0
+  售罄 = 已发布且可售库存 = 0
+  下单、取消和关闭改变库存数量。
+end note
+note bottom of Offline
+  库存释放保留当前审核及上下架状态。
+  已有订单依据快照继续履约。
+end note
+legend bottom
+  REQ-002、003、004、008、010、018、025
+endlegend
+@enduml

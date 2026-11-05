@@ -1,0 +1,69 @@
+@startuml
+title D10 直接下单时序图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 14
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceParticipantBackgroundColor #E8F3F1
+skinparam sequenceParticipantBorderColor #39786C
+skinparam ArrowColor #48616F
+hide footbox
+autonumber
+actor 买家 as Buyer
+boundary "下单确认页 P04" as Page
+control "接口 / M01 权限" as API
+control "M03 订单服务" as Orders
+control "M02 商品服务" as Products
+database "Repository / SQLite" as DB
+Buyer -> Page : 确认数量、交付方式及金额
+Page -> API : POST /orders\nrequestKey、商品、数量、交付、页面金额
+API -> API : 验证登录会话与输入格式
+alt 会话或输入需调整
+  API --> Page : 登录入口或字段提示
+else 输入有效
+  API -> Orders : placeOrder(buyerId, request)
+  Orders -> DB : BEGIN IMMEDIATE
+  Orders -> DB : 查询 (buyerId, requestKey)
+  DB --> Orders : 原请求结果
+  alt 已有请求结果
+    Orders -> DB : COMMIT（结束读取事务）
+    Orders --> API : 返回原订单及当前状态
+  else 新请求
+    Orders -> DB : 查询同买家同商品的待付款订单
+    DB --> Orders : 待付款订单
+    alt 存在待付款订单
+      Orders -> DB : COMMIT（结束读取事务）
+      Orders --> API : 返回已有订单，提示付款或取消
+    else 可以创建新订单
+      Orders -> Products : 校验最新商品、卖家、数量和交付方式
+      Products -> DB : 读取当前商品及可售库存（共享事务）
+      DB --> Products : 状态、价格、邮费、库存
+      Products --> Orders : 最新交易信息 / 校验提示
+      alt 商品、库存或页面金额需调整
+        Orders -> DB : ROLLBACK
+        Orders --> API : 提示状态 / 库存变化，或刷新金额后确认
+      else 校验通过
+        Orders -> Products : reserve(quantity)（共享事务）
+        Products -> DB : 条件更新可售库存
+        DB --> Products : 更新成功
+        Products --> Orders : 占用成功
+        Orders -> DB : 保存订单、快照、库存占用\n请求标识、付款期限、操作日志
+        alt 写入完成
+          Orders -> DB : COMMIT
+          Orders --> API : 新订单号、金额、待付款状态、截止时间
+        else 写入失败
+          Orders -> DB : ROLLBACK（含库存变更）
+          Orders --> API : 操作失败提示，可用同一 requestKey 重试
+        end
+      end
+    end
+  end
+  API --> Page : 订单结果或操作提示
+end
+Page --> Buyer : 打开订单详情 P06 或展示需调整的信息
+note over Orders, DB
+  写事务串行处理最后一件库存的竞争。
+  requestKey 区分主动新购买和同次重试；付款后重放旧请求仍返回原订单。
+  订单总额 = 下单单价 × 数量 + 本单邮费。
+end note
+@enduml

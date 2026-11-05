@@ -1,0 +1,136 @@
+@startuml
+!pragma layout smetana
+title D06 交易核心类图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 14
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor #E8F3F1
+skinparam classBorderColor #39786C
+skinparam ArrowColor #48616F
+top to bottom direction
+class "用户\nUser" as User {
+  id: UUID
+  username: String
+  passwordHash: String
+  role: USER | ADMIN
+  +hasPermission(action): Boolean
+}
+class "商品\nProduct" as Product {
+  id: UUID
+  title / description: String
+  images: List<FileRef>
+  category / type: String
+  status: ProductStatus
+  priceCents / postageCents: Integer
+  availableStock: Integer
+  deliveryModes: Set
+  +submitReview()
+  +reserve(quantity)
+  +release(quantity)
+}
+class "订单\nOrder" as Order {
+  id / orderNo / requestKey: String
+  status: OrderStatus
+  quantity / totalCents: Integer
+  payDueAt / autoConfirmAt: DateTime
+  disputeOpen: Boolean
+  +pay()
+  +closeUnpaid()
+  +deliver()
+  +confirm()
+  +applyResolution(resolution)
+}
+class "订单快照\nOrderSnapshot" as Snapshot {
+  title / description / type: String
+  images: List<FileRef>
+  quantity: Integer
+  unitPriceCents / postageCents: Integer
+  totalCents: Integer
+  createdAt: DateTime
+}
+class "库存占用\nStockReservation" as Stock {
+  quantity: Integer
+  status: HELD | RELEASED | CONSUMED
+  +releaseOnce()
+  +consumeOnce()
+}
+class "交付信息\nDelivery" as Delivery {
+  mode: POST | MEET | SERVICE
+  recipient / phone / address: String
+  carrier / trackingNo: String
+  startedAt / deliveredAt: DateTime
+  +startService()
+  +markDelivered()
+}
+class "取消申请\nCancellation" as Cancel {
+  id / initiatorId: UUID
+  reason / originalStatus: String
+  status: OPEN | AGREED | REJECTED | WITHDRAWN
+  +respond(result)
+  +withdraw()
+}
+class "付款\nPayment" as Payment {
+  amountCents: Integer
+  paidAt: DateTime
+  operationKey: String
+}
+class "平台暂存\nEscrow" as Escrow {
+  paidCents / balanceCents: Integer
+  refundedCents / settledCents: Integer
+  +refund(amount)
+  +settle(amount)
+}
+class "退款\nRefund" as Refund {
+  amountCents: Integer
+  reason: String
+  operationKey: String
+  resolutionId: UUID [0..1]
+  createdAt: DateTime
+}
+class "结算\nSettlement" as Settlement {
+  amountCents: Integer
+  settledAt: DateTime
+  operationKey: String
+}
+class "售后调整\nFundAdjustment" as Adjustment {
+  amountCents: Integer
+  direction / reason: String
+  resolutionId: UUID
+  operationKey: String
+}
+User "1 卖家" -- "0..*" Product : 发布
+User "1 买家" -- "0..*" Order : 购买
+User "1 卖家" -- "0..*" Order : 出售
+Product "1" -- "0..*" Order : 当前商品关联
+Order "1" *-- "1" Snapshot
+Order "1" *-- "1" Stock
+Stock "0..*" --> "1" Product : 占用对象
+Order "1" *-- "1" Delivery
+Order "1" *-- "0..*" Cancel
+Order "1" *-- "0..1" Payment
+Order "1" *-- "0..1" Escrow
+Order "1" *-- "0..*" Refund
+Order "1" *-- "0..1" Settlement
+Order "1" *-- "0..*" Adjustment
+Snapshot -[hidden]down-> Delivery
+Delivery -[hidden]down-> Cancel
+Payment -[hidden]down-> Escrow
+Escrow -[hidden]down-> Adjustment
+Refund -[hidden]down-> Settlement
+note bottom of Snapshot
+  totalCents = unitPriceCents × quantity + postageCents
+  快照保存下单时约定，图片引用随订单保留。
+end note
+note bottom of Escrow
+  balanceCents = paidCents - refundedCents - settledCents
+  金额以整数分保存，所有资金操作均为虚拟记录。
+end note
+legend bottom
+  账号名、订单号唯一；(买家, requestKey) 唯一。
+  同一买家同商品同时至多一笔待付款订单。
+  取消申请同时至多一条 OPEN；资金 operationKey 唯一。
+  组合关系表示业务记录属于订单，订单及其记录持续保留。
+endlegend
+@enduml

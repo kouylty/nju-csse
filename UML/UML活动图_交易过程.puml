@@ -1,0 +1,68 @@
+@startuml
+title D02 交易过程活动图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 15
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam activityBackgroundColor #E8F3F1
+skinparam activityBorderColor #39786C
+skinparam ArrowColor #48616F
+|买家|
+start
+:查看商品，按需联系卖家;
+:确认数量、交付方式与金额\n邮寄时填写收件信息;
+|系统|
+:校验可售状态、最新金额、库存与请求标识;
+if (下单结果?) then (创建成功)
+  :事务内保存订单、快照和库存占用\n订单进入待付款，设置十五分钟期限;
+elseif (已有请求结果或待付款订单) then (已有订单)
+  :返回已有订单及当前状态;
+  stop
+else (需要调整)
+  :提示库存、价格或商品状态变化\n返回下单确认页;
+  stop
+endif
+|买家|
+:在订单详情选择付款或取消;
+|系统|
+if (在期限内完成虚拟付款?) then (是)
+  :事务内记录付款及平台暂存\n进入待交付或服务待开始;
+else (取消 / 到期关闭)
+  :事务内关闭订单并释放库存\n保留商品的审核与上下架状态;
+  stop
+endif
+note right
+  交付前取消协商及各阶段客服处理。
+  每次履约操作依据最新订单状态执行。
+end note
+|卖家|
+switch (订单交付方式)
+case (邮寄物品)
+  :填写快递公司和单号，标记发货;
+case (当面交付)
+  :站内约定地点，实际交付后标记已交付;
+case (一次性交付服务)
+  :约定时间，标记开始服务;
+  :完成服务，标记服务已交付;
+endswitch
+|系统|
+:保存交付时间\n展示七天后的自动确认时间;
+if (进入纠纷处理?) then (是)
+  :保存履约状态，开启纠纷标记\n进入 D04 客服处理流程;
+  stop
+else (正常确认)
+  :接收买家主动确认\n或到期任务触发确认;
+  :事务内重查交付状态与纠纷标记;
+  if (当前满足完成条件?) then (是)
+    :完成订单、消耗库存占用\n将平台暂存款虚拟结算给卖家;
+  else (状态已变化)
+    :展示最新订单进度与处理入口;
+    stop
+  endif
+endif
+|买卖双方|
+:分别提交星级和文字评价;
+|系统|
+:按评价方向展示到商品与个人评价页\n更新卖家成交及模拟到账统计;
+stop
+@enduml

@@ -1,0 +1,53 @@
+@startuml
+title D04 取消协商与客服处理活动图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 15
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam activityBackgroundColor #E8F3F1
+skinparam activityBorderColor #39786C
+skinparam ArrowColor #48616F
+start
+:订单一方打开订单详情 P06;
+if (已付款且处于实物待交付 / 服务待开始，\n并选择协商取消?) then (是)
+  :填写取消原因;
+  :事务内校验状态并记录原履约阶段\n进入取消协商中;
+  :等待对方答复或发起人操作;
+  switch (处理动作)
+  case (对方同意)
+    :事务内全额虚拟退款、关闭订单\n释放订单占用库存，记录结果;
+    :通知双方;
+    stop
+  case (对方拒绝 / 发起人撤回)
+    :保存申请结果，恢复原履约阶段;
+    :返回订单详情继续履约;
+    stop
+  case (继续等待)
+    :保持取消协商，展示沟通和客服入口;
+    stop
+  case (申请客服)
+  endswitch
+else (已交付 / 服务中 / 售后 / 等待问题)
+  :通过订单详情申请客服;
+endif
+:填写原因和图片\n关联订单及相关会话;
+:开启纠纷处理标记，保存原履约状态\n暂停自动确认和结算;
+:管理员受理，查看关联证据\n联系双方并记录沟通;
+:记录协商处理意见\n明确订单后续阶段、资金及库存处置\n需要继续履约时明确自动确认安排;
+if (意见已形成可执行结果?) then (是)
+  :订单服务在事务内执行处理意见\n关联退款 / 调整 / 结算及库存记录;
+  if (执行成功?) then (是)
+    :保存执行结果与日志，结案\n更新纠纷标记并通知双方;
+  else (继续处理)
+    :保留原业务状态与处理意见\n客服查看执行提示后继续处理;
+  endif
+else (继续协商)
+  :展示当前进度，继续沟通;
+endif
+stop
+legend bottom
+  已完成订单保留原成交和结算历史，售后金额通过调整流水记录。
+  客服处置以本次协商意见为依据；恢复履约与确认时间在意见中明确。
+  REQ-015、019、029、031、032
+endlegend
+@enduml

@@ -1,0 +1,49 @@
+@startuml
+title D01 用户入口活动图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 15
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam activityBackgroundColor #E8F3F1
+skinparam activityBorderColor #39786C
+skinparam ArrowColor #48616F
+start
+:打开余闲;
+:读取会话，展示商品首页 P02;
+if (选择的入口?) then (浏览商品)
+  :输入关键词、分类、价格、类型和状态;
+  :展示匹配商品或空结果;
+  :查看商品详情 P03\n图片、单价、库存、交付方式、评价;
+  if (继续操作?) then (联系 / 购买 / 举报)
+    if (已有登录会话?) then (是)
+    else (否)
+      :注册或登录 P01\n返回原商品与操作入口;
+    endif
+    :联系卖家 P07 / 确认下单 P04\n或提交举报 P12;
+  else (继续浏览)
+    :返回商品列表;
+  endif
+elseif (个人业务) then (个人入口)
+  if (已有登录会话?) then (是)
+  else (否)
+    :注册或登录 P01;
+  endif
+  :进入消息、我的购买、我的出售\n或个人中心;
+  :按账号加载订单、商品、会话、\n评价、统计和处理记录;
+else (管理后台)
+  :登录并校验管理员权限;
+  if (具有管理权限?) then (是)
+    :展示三类待办 P13;
+    :进入商品审核、举报与纠纷处理、\n日志查询或管理员授权;
+  else (普通账号)
+    :展示普通用户工作区;
+  endif
+endif
+:继续使用对应业务页面;
+stop
+legend bottom
+  普通账号同时拥有购买和出售入口。
+  首个管理员由部署初始化命令建立，后续授权在 P17 完成。
+  REQ-001、005、006、007、020、021、024、035
+endlegend
+@enduml

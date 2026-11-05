@@ -1,0 +1,64 @@
+@startuml
+!pragma layout smetana
+title D05 前后端组件图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 15
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam componentBackgroundColor #E8F3F1
+skinparam componentBorderColor #39786C
+skinparam ArrowColor #48616F
+top to bottom direction
+package "界面层" {
+  component "普通用户 Web\n商品 / 买卖订单 / 消息 / 个人中心" as web
+  component "管理后台 Web\n审核 / 举报与客服 / 日志 / 授权" as admin
+}
+package "单实例后端应用" {
+  component "HTTP JSON 接口\n会话与对象权限校验" as api
+  component "定时任务\n未付款关闭 / 自动确认" as timer
+  package "业务模块" {
+    component "M01 账号与权限" as auth
+    component "M02 商品与审核" as product
+    component "M03 订单与履约\n交易事务协调入口" as orders
+    component "M04 模拟资金" as funds
+    component "M05 沟通与评价" as social
+    component "M06 举报与纠纷" as cases
+    component "M07 统计与审计" as audit
+  }
+  component "Repository / 事务管理\n业务数据读写、条件更新、唯一约束" as repo
+  component "图片文件接口\n上传、可见范围校验、读取" as files
+}
+database "SQLite\n账号、商品、订单、资金、\n会话、评价、案件和日志" as db
+folder "图片目录\n商品图 / 订单历史图 / 案件证据" as images
+
+web --> api : HTTPS / JSON
+admin --> api : HTTPS / JSON
+api --> auth : 身份与授权
+api --> product
+api --> orders
+api --> social
+api --> cases
+api --> audit
+api --> files
+timer --> orders : 关闭 / 确认
+orders --> product : 占用 / 释放库存
+orders --> funds : 付款 / 退款 / 结算
+cases --> orders : 纠纷标记 / 执行处置
+cases --> product : 违规处理
+auth --> repo
+product --> repo
+orders --> repo
+funds --> repo
+social --> repo
+cases --> repo
+audit --> repo
+repo --> db
+files --> images
+files --> auth : 访问授权
+note bottom of repo
+  交易相关模块共享同一数据库事务。
+  M05 保存业务通知；M07 保存关键操作日志。
+  通知与日志调用在此集中说明，以保持主依赖图清晰。
+end note
+@enduml

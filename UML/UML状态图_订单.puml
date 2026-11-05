@@ -1,0 +1,49 @@
+@startuml
+!pragma layout smetana
+title D09 订单状态图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 14
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam stateBackgroundColor #E8F3F1
+skinparam stateBorderColor #39786C
+skinparam ArrowColor #48616F
+state "订单" as Order {
+  state "待付款" as Unpaid
+  state "实物待交付" as Goods
+  state "服务待开始" as ServiceReady
+  state "服务进行中" as ServiceActive
+  state "待收货 / 服务已交付待确认" as Delivered
+  state "取消协商中" as Cancelling
+  state "已完成" as Completed
+  state "已关闭" as Closed
+  [*] --> Unpaid : 创建订单、占用库存
+  Unpaid --> Goods : 虚拟付款 [物品]
+  Unpaid --> ServiceReady : 虚拟付款 [服务]
+  Unpaid --> Closed : 买家取消 / 十五分钟到期\n释放库存
+  Goods --> Delivered : 发货 / 当面交付\n设置七天自动确认时间
+  ServiceReady --> ServiceActive : 卖家开始服务
+  ServiceActive --> Delivered : 标记服务交付\n设置七天自动确认时间
+  Goods --> Cancelling : 任意一方申请取消\n保存原状态
+  ServiceReady --> Cancelling : 任意一方申请取消\n保存原状态
+  Cancelling --> Goods : 拒绝 / 撤回 [原状态为实物待交付]
+  Cancelling --> ServiceReady : 拒绝 / 撤回 [原状态为服务待开始]
+  Cancelling --> Closed : 对方同意\n全额退款并释放库存
+  Delivered --> Completed : 手动确认 / 到期确认\n[纠纷标记关闭]\n完成并虚拟结算
+  Completed --> Completed : 双方各评价一次\n售后保留原交易记录
+}
+state "纠纷标记（与履约状态并行保存）" as DisputeFlag {
+  state "无进行中纠纷" as Clear
+  state "纠纷处理中" as Handling
+  [*] --> Clear
+  Clear --> Handling : 申请客服\n保存当前履约状态
+  Handling --> Handling : 沟通、记录意见\n暂停自动确认与结算
+  Handling --> Clear : 执行具体处理意见并结案\n更新后续履约、资金和库存安排
+}
+note bottom of Order
+  订单同时保存履约状态和独立的纠纷标记。
+  进入纠纷后，订单处置由客服处理意见协调执行。
+  已完成后的售后使用资金调整记录，保留原成交与结算历史。
+  下单、付款、关闭、退款、确认结算各自原子提交，后续请求读取最新状态。
+end note
+@enduml

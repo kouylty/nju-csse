@@ -1,0 +1,106 @@
+@startuml
+!pragma layout smetana
+title D07 沟通与治理类图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 14
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor #E8F3F1
+skinparam classBorderColor #39786C
+skinparam ArrowColor #48616F
+top to bottom direction
+class "用户\nUser" as User <<D06>>
+class "商品\nProduct" as Product <<D06>>
+class "订单\nOrder" as Order <<D06>>
+class "会话\nConversation" as Conversation {
+  id: UUID
+  participantIds: Set<UserId> [2]
+  +sendMessage(sender, text)
+}
+class "消息\nMessage" as Message {
+  senderId: UUID
+  text: String
+  sentAt: DateTime
+}
+class "评价\nEvaluation" as Evaluation {
+  authorId / recipientId: UUID
+  stars: Integer [1..5]
+  text: String
+  createdAt: DateTime
+}
+class "审核记录\nProductReview" as Review {
+  submittedContent: Snapshot
+  reviewerId: UUID [0..1]
+  result / reason: String
+  submittedAt / reviewedAt: DateTime
+  +decide(result, reason)
+}
+class "举报\nReport" as Report {
+  reporterId: UUID
+  reason / evidenceFiles: String
+  status / result: String
+  +handle(result, reason)
+}
+class "纠纷案件\nDispute" as Dispute {
+  applicantId / handlerId: UUID
+  reason / evidenceFiles: String
+  status: OPEN | PROCESSING | CLOSED
+  +recordOpinion(text)
+  +closeAfterExecution()
+}
+class "处理意见\nResolution" as Resolution {
+  handlerId: UUID
+  agreedContent: String
+  targetOrderStatus: OrderStatus
+  fundAction: String
+  amountCents: Integer
+  stockAction: String
+  confirmationPlan: String
+  operationKey / executionResult: String
+  +executeThroughOrderService()
+}
+class "通知\nNotification" as Notice {
+  recipientId: UUID
+  content / businessRef: String
+  createdAt / readAt: DateTime
+  +markRead()
+}
+class "操作日志\nOperationLog" as Log {
+  actorId / objectId: String
+  action / objectType: String
+  productId / orderId: UUID [0..1]
+  beforeValue / afterValue: String
+  occurredAt: DateTime
+}
+User "2" -- "0..*" Conversation : 参与
+Conversation "0..*" --> "1" Product
+Conversation "0..*" --> "0..1" Order
+Conversation "1" *-- "0..*" Message
+Order "1" -- "0..2" Evaluation
+Evaluation "0..*" --> "1" User : 评价人
+Evaluation "0..*" --> "1" User : 被评价人
+Product "1" -- "0..*" Review
+Report "0..*" --> "0..1" Product : 商品举报
+Report "0..*" --> "0..1" Conversation : 聊天举报
+Order "1" -- "0..*" Dispute
+Dispute "1" *-- "0..*" Resolution
+Resolution ..> Order : 协调业务处置
+User "1" -- "0..*" Notice : 接收
+Log ..> Order : 订单操作
+Log ..> Product : 商品操作
+Log ..> Dispute : 客服处置与证据访问
+note bottom of Evaluation
+  (orderId, authorId) 唯一。
+  买家评价通过订单商品关联展示。
+end note
+note bottom of Report
+  每个举报选择商品或聊天中的一个对象。
+  客服依据处理任务查看关联证据并记录访问。
+end note
+legend bottom
+  D06 引用类沿用相同的用户、商品和订单标识。
+  Resolution 关联实际退款、资金调整和状态执行记录。
+  用户通过 Notification 与案件详情查看处理结果。
+endlegend
+@enduml

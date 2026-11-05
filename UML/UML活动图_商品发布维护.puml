@@ -1,0 +1,61 @@
+@startuml
+title D03 商品发布和信息维护活动图
+skinparam defaultFontName "SansSerif"
+skinparam defaultFontSize 15
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam activityBackgroundColor #E8F3F1
+skinparam activityBorderColor #39786C
+skinparam ArrowColor #48616F
+start
+:卖家新建商品或打开草稿 P09;
+:填写图片、标题、描述、分类、类型、\n价格、库存和交付费用;
+if (本次操作?) then (保存草稿)
+  :保存本人可见的草稿;
+  stop
+else (提交审核)
+endif
+repeat
+  :校验提交字段与交付费用;
+  if (资料完整且有效?) then (是)
+    :保存审核提交内容，进入待审核;
+    :管理员查看资料，填写审核结果;
+    :保存审核记录并通知卖家;
+  else (补充资料)
+    :显示需调整的字段;
+  endif
+  if (已审核通过?) then (是)
+  else (继续修改)
+    :查看字段提示或驳回原因\n编辑后重新提交;
+  endif
+repeat while (仍需提交审核?) is (是) not (审核通过)
+:商品公开发布\n按可售库存显示在售或售罄;
+switch (后续维护场景)
+case (价格 / 邮费 / 库存)
+  :调整交易字段;
+  :保存当前商品与操作日志\n保留订单占用和历史快照;
+case (标题 / 图片 / 描述 / 类型 / 分类)
+  :修改展示内容并提交复审;
+  :转为待审核，接回上方审核流程;
+case (主动下架)
+  :下架商品;
+  :保存主动下架状态\n再次出售由卖家重新提交审核;
+case (举报处理)
+  :用户提交商品举报与证据;
+  :管理员核查并记录处理意见;
+  if (处理结果?) then (违规下架)
+    :违规下架，通知双方并记录日志;
+    :卖家提交整改资料;
+    :管理员复核整改;
+    if (批准重新审核?) then (是)
+      :转为待审核，接回上方审核流程;
+    else (继续整改)
+      :保留违规下架，反馈整改意见;
+    endif
+  else (驳回举报 / 要求整改)
+    :保存处理意见并通知相关用户;
+  endif
+endswitch
+:在商品管理页展示当前状态和记录;
+stop
+@enduml
